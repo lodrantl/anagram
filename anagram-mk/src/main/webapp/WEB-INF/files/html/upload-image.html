@@ -1,0 +1,28 @@
+<html>
+<head>
+<title>Nalaganje slik</title>
+<script type="text/javascript" src="/js/jquery-2.0.3.min.js"></script>
+<script type="text/javascript" src="/js/upload-image.js"></script>
+<style type="text/css">
+progress {
+	margin-bot: 20px;
+}
+
+div.img {
+	margin-bot: 10px;
+}
+
+button {
+	margin-left: 10px;
+}
+</style>
+</head>
+<body>
+	<form method="post" enctype="multipart/form-data">
+		<input type="text" name="name" /><br/><label>Kdo je avtor slike?</label><input type="text" name="painter" /> <br/><input type="file" name="authorimg">
+		<input type="button" id="upload" value="Naloži slike" />
+	</form>
+	<progress></progress>
+	<div id="imagewrapper"></div>
+</body>
+</html>

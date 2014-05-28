@@ -1,0 +1,67 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<head>
+<meta name="generator" content="HTML Tidy, see www.w3.org" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Nov avtor</title>
+<style type="text/css">
+.anagram {
+	border: 1px solid black;
+	margin: 0px 5px 20px 5px;
+	padding: 5px;
+}
+
+input {
+	display: block;
+	width: 95%;
+}
+
+p {
+	margin: 5px;
+	font-weight: bold;
+}
+
+.help,.pic {
+	margin-left: 30px;
+}
+
+#basic {
+	margin-bottom: 20px;
+}
+
+textarea {
+	width: 95%;
+	height: 48px;
+}
+</style>
+<script type="text/javascript" src="/js/jquery-2.0.3.min.js"></script>
+<script type="text/javascript" src="/js/authors.js"></script>
+</head>
+<body>
+	<div id="main">
+		<p>Izberi obstoječega avtorja ali pa začni z novim</p>
+		<select id="authorsel">
+		</select>
+		<button onclick="clearPage()">Nov avtor</button>
+		<button onclick="editPics()">Uredi slike</button>
+		<div id="basic">
+			<p>Ime in priimek avtorja (npr. ANTON AŠKERC)</p>
+			<input type="text" id="name" />
+			<p>Besedi iz katerih se sestavi ime avtorja.</p>
+			<input type="text" id="firstwords" />
+			<p>Poved z tema besedama:</p>
+			<textarea id="firstsentence" name="firstsentence">Enter text here...</textarea>
+			<p id="picwrap">Imena slik (npr. DSC0123.jpg), prva slika je uporabljena kot pomoč.</p>
+			<input type="text" class="pic" />
+			<button id="sli" onclick="newPic(this)">Nova slika</button>
+			<p>Pomoči</p>
+			<input type="text" class="help" />
+			<button id="pom" onclick="newHelp(this)">Nova pomoč</button>
+		</div>
+		<div id="anagrams"></div>
+		<button onclick="newAnagram()" style="font-weight: bold;">Nov anagram</button>
+		<button onclick="saveToServer()" style="font-weight: bold;">Shrani</button>
+		<button onclick="deleteCurrent()" style="font-weight: bold;">Odstrani</button>
+	</div>
+</body>
+</html>

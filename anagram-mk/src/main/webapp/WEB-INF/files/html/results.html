@@ -1,0 +1,63 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Anagram</title>
+<style type="text/css">
+@import url("/css/results.css");
+
+@import url("/css/dhtmlxgrid.css");
+
+@import url("/css/dhtmlxgrid_skins.css");
+
+#table {
+	width: 100%;
+	height: 600px;
+}
+</style>
+<script type="text/javascript" src="/js/jquery-2.0.3.min.js"></script>
+<script type="text/javascript" src="/js/dhtmlxcommon.js"></script>
+<script type="text/javascript" src="/js/dhtmlxgrid.js"></script>
+<script type="text/javascript" src="/js/dhtmlxgrid_filter.js"></script>
+<script type="text/javascript" src="/js/dhtmlxgridcell.js"></script>
+<script type="text/javascript">
+	$(function() {
+		mygrid = new dhtmlXGridObject('table');
+		mygrid.setImagePath("/img/dxgrid/");
+		mygrid.setHeader("Ime,Točke,Datum");
+		mygrid.setInitWidths("*, 90, 140");
+		mygrid.setColAlign("left,right,right");
+		mygrid.setSkin("light");
+	    mygrid.setColSorting("str,int,na");
+		mygrid.enableResizing("false,false,false");
+		mygrid.enableAutoHeight(true);
+		mygrid.makeFilter("namefilter", 0);
+		mygrid.init();
+		mygrid.load("/rest/scores", function() {
+			mygrid.sortRows(1,"int","dsc");
+		});
+	});
+</script>
+</head>
+<body class="type">
+	<div id="helpy"></div>
+	<div id="container">
+		<div id="nav">
+			<ul id="nav">
+				<li><a href="/">ZAČETEK</a></li>
+				<li><a href="/anagram">REZULTATI</a></li>
+				<li><a href="navodila.html">NAVODILA</a></li>
+			</ul>
+		</div>
+		<div id="left"></div>
+		<div id="right"></div>
+		<div id="content">
+			<div id="title">
+				<img src="../img/title.png" alt="IGRA ANAGRAMOV" />
+			</div>
+			<input type="text" id="namefilter" />
+			<div id="table"></div>
+		</div>
+	</div>
+</body>
+</html>

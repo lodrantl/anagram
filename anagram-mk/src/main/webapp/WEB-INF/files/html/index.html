@@ -1,0 +1,55 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html lang="en">
+<head>
+<title>Igra anagramov</title>
+<meta name="description" content="" />
+<meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
+<style type="text/css">
+@import url(../css/index.css);
+</style>
+<script type="text/javascript">
+	function checkName() {
+		var input = document.getElementById("user");
+		return (user.value !== null || user.value !== undefined || user.value !== "");
+	}
+</script>
+</head>
+<body>
+	<div id="container">
+		<div id="nav">
+			<ul id="nav">
+				<li><a href="/" id="current">START</a></li>
+				<li><a href="/rezultati">REZULTATI</a></li>
+				<li><a href="/navodila">NAVODILA</a></li>
+			</ul>
+		</div>
+		<div id="left"></div>
+		<div id="right"></div>
+		<div id="content">
+			<div id="title">
+				<img src="../img/title.png" alt="IGRA ANAGRAMOV" />
+			</div>
+			<p id="instructions">
+				Anagram ali premetanka je igrivi ples črk v blodnjaku besednih
+				brezpotij. Nastane s premeščanjem črk v besedi ali frazi,tako da
+				dobimo drugo besedo ali frazo, ki ima nek pomen. Besede, ki jih
+				dobimo z anagramiranjem so lahko na kak način povezane s prvotnimi,
+				ali pa tudi ne. Anagram je lahko uporabljen v stavku.<br /> <br />
+				<b>Primer:</b> Pesniški NOVINEC vročično udarja na TIPKE pisalnega
+				stroja.<br /> </br> <b>Rešitev anagrama:</b> CENE VIPOTNIK
+			</p>
+			<form method="post" action="../rest/register"
+				onsubmit="return checkName()">
+				<div>
+					<span class="type0">Vaše ime:</span> <input id="user" type="text"
+						name="username" /> <input type="submit" value="Začni" />
+				</div>
+			</form>
+			<div id="links">
+				<a href="../anagram"> <img src="../img/results.png"
+					alt="Rezultati" /></a>
+			</div>
+		</div>
+	</div>
+</body>
+</html>
