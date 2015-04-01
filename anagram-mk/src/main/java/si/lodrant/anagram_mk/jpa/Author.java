@@ -14,6 +14,7 @@ public class Author {
 	@Id
 	String				name;
 	String				json;
+	String				period;
 	List<AuthorImage>	images	= new ArrayList<AuthorImage>();
 	AuthorImage			mainImage;
 
@@ -83,5 +84,13 @@ public class Author {
 
 	public static Author load(String name) throws NotFoundException {
 		return ofy().load().type(Author.class).id(name).safe();
+	}
+
+	public void setPeriod(String string) {
+		this.period = string;
+	}
+
+	public String getPeriod() {
+		return period;
 	}
 }

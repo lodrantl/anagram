@@ -334,3 +334,12 @@ button:disabled {
 #helpy {
 	display: none;
 }
+
+option.author {
+	margin-left: 20px;
+}
+
+select {
+	margin-bottom: 14px;
+}
+

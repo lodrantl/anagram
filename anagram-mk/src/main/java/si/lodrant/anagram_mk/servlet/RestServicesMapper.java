@@ -81,9 +81,9 @@ public class RestServicesMapper {
 
 	@PUT
 	@Consumes("application/json")
-	@Path("/author/{name}")
-	public Response uploadAuthor(@PathParam("name") String name, String json) {
-		return rs.uploadAuthor(name, json);
+	@Path("/author/{period}/{name}")
+	public Response uploadAuthor(@PathParam("name") String name, @PathParam("period") String period, String json) {
+		return rs.uploadAuthor(name, period, json);
 	}
 
 	@DELETE
@@ -100,11 +100,19 @@ public class RestServicesMapper {
 	}
 
 	@GET
-	@Path("/authors")
+	@Path("/authors/full")
 	@Produces("application/json; charset=UTF-8")
-	public Response getAuthors() {
-		return rs.getAuthors();
+	public Response getAuthorsFull() {
+		return rs.getAuthorsFull();
 	}
+	
+	@GET
+	@Path("/authors/list")
+	@Produces("application/json; charset=UTF-8")
+	public Response getAuthorsList() {
+		return rs.getAuthorsList();
+	}
+
 
 	@GET
 	@Path("/author/random")
@@ -112,7 +120,14 @@ public class RestServicesMapper {
 	public Response random(@CookieParam("ASESSIONKEY") long sessionid) {
 		return rs.random(sessionid, uri);
 	}
-
+	
+	@GET
+	@Path("/period/{name}")
+	@Produces("application/json; charset=UTF-8")
+	public Response getPeriod(@PathParam("name") String name) {
+		return rs.period(name);
+	}
+	
 	@POST
 	@Path("/register")
 	public Response register(@CookieParam("ASESSIONKEY") long sessionid, @FormParam("username") String user) {

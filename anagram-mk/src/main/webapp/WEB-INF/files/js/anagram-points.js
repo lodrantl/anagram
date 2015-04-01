@@ -1,10 +1,25 @@
-define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
+define([ "jquery", "fancybox/jquery.fancybox.pack"], function($) {
 	var Game = {
-		type : "",
 		author : {},
 		anagram : {},
 		points : 0,
 		init : function() {
+			this.validateSession();
+			
+			console.debug("Session cookie: " + Game.extras.readCookie("ASESSIONKEY"));
+
+			window.onunload = function(e) {
+				$.ajax({
+					async : false,
+					type : "POST",
+					url : "/rest/invalidate",
+				});
+			};
+
+			window.onbeforeunload = function(e) {
+				return "Trenutni rezultat bo izgubljen.";
+			};
+
 			$(document).bind("keydown keypress", function(e) {
 				if (e.which == 8) { // 8 == backspace
 					e.preventDefault();
@@ -12,10 +27,10 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 					if (word.length == 1) {
 						var full = word.children(".box.full").last();
 						if (full.length == 1) {
-							if (Game.type == "period") {
-								Game.period.targetHandler.call(full.get(0));
-							} else if (Game.type == "author") {
+							if (word.parent().get(0).id == "name") {
 								Game.author.targetHandler.call(full.get(0));
+							} else {
+								Game.anagram.targetHandler.call(full.get(0));
 							}
 						}
 					}
@@ -24,53 +39,12 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 
 			$("button#next").click(Game.next);
 			$("button#skip").click(Game.skip);
+		},
 
-			var select = $("select");
-			$("select").change(function() {
-				var selected = this.options[this.selectedIndex];
-				if (selected.value != "") {
-					if (Game.type == "period") {
-						Game.period.finish();
-					} else if (Game.type == "author") {
-						Game.author.finish();
-					}
-
-					$("#next").attr("disabled", "disabled");
-					$("#skip").removeAttr("disabled");
-					$("#hints").html("&nbsp;");
-
-
-					if (selected.className == "period") {
-						Game.period.setNew(selected.value);
-						$("#name").show();
-					} else if (selected.className == "author") {
-						Game.author.setNew(selected.value);
-						$("#name").hide();
-					}
-				}
-			});
-
+		validateSession : function() {
 			$.ajax({
-				async : true,
-				type : "GET",
-				url : "/rest/authors/list",
-				cache : false,
-				success : function(data) {
-					var select = $("select");
-					select.append("<option/>")
-
-					for (var i = 0; i < data.length; i++) {
-						var author = data[i];
-						var periodGroup = select.children(".period[value=" + author.period + "]");
-						if (periodGroup.length == 0) {
-							periodGroup = $("<option/>").addClass("period").text(author.period).attr("value", author.period);
-							periodGroup.appendTo(select);
-						}
-						var authorOpt = $("<option/>").addClass("author").html("&nbsp;&nbsp;&nbsp;&nbsp;" + author.name).attr("value", author.name);
-						authorOpt.insertAfter(periodGroup);
-					}
-				},
-				dataType : "json"
+				url : "/rest/validate",
+				error : Game.extras.redirectHandler
 			});
 		},
 
@@ -82,21 +56,71 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 
 			$("#hints").html("&nbsp;");
 
-			if (Game.type == "period") {
-				Game.period.setNextAuthor();
-			} else if (Game.type == "author") {
-				Game.author.setNextAnagram();
+			if (Game.anagram.count === null) {
+				Game.author.setNew();
+				$("#author-sentence").show();
+				$("#anagram-sentence").hide().empty();
+				$("#name").show();
+			} else {
+				$("#anagram-sentence").show();
+				$("#author-sentence").hide().empty();
+				$("#name").hide();
+				Game.anagram.setNew();
 			}
 		},
 
 		skip : function() {
-			if (Game.type == "period") {
-				Game.period.finish(false);
-			} else if (Game.type == "author") {
+			if (Game.anagram.count === null) { // searching author
 				Game.author.finish(false);
+			} else {
+				Game.anagram.finish(false);
 			}
 		},
 
+	};
+
+	var Timer = {
+		start : function(time) {
+			Timer.clear();
+
+			Timer.startTime = new Date();
+
+			$("#timer").css("color", "");
+
+			Timer.object = setInterval(Timer.setScreen, 1000);
+		},
+
+		setScreen : function() {
+			var remains = Timer.getRemains();
+			var mins = ~~(remains / 60);
+			var secs = remains % 60;
+			$("#timer").text("Še " + Timer.format(mins) + ":" + Timer.format(secs));
+
+			if (remains < 60) {
+				$("#timer").css("color", "#8C001A");
+			} else if (remains < 120) {
+				$("#timer").css("color", "#6F0564");
+			}
+
+			if (remains <= 0) {
+				Timer.clear();
+			}
+		},
+
+		getRemains : function() {
+			return Math.round(420 - ((new Date() - Timer.startTime) / 1000));
+		},
+
+		clear : function() {
+			if (Timer.object !== null) {
+				clearInterval(Timer.object);
+				Timer.object = null;
+			}
+		},
+		format : function(num) {
+			var s = "0" + num;
+			return s.substr(s.length - 2);
+		}
 	};
 
 	Game.extras = {
@@ -114,6 +138,16 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 		hintHandler : function() {
 			$(this).removeClass("unused").addClass("used");
 		},
+		redirectHandler : function(jqXHR) {
+			if (jqXHR.status == 401) {
+				var location = jqXHR.getResponseHeader("REDIRECT_LOC");
+				if (location !== null) {
+					window.onbeforeunload = null;
+					alert("Session this has expired. Please start again.");
+					window.location.replace(location);
+				}
+			}
+		},
 		selectHandler : function() {
 			var word = $(this).parent(".word");
 			$(".word.selected").removeClass("selected");
@@ -122,29 +156,33 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 		}
 	};
 
-	Game.period = {
+	var auth = {
 		links : {},
 		count : 0,
-		setNextAuthor : function() {
-			var sentenceDiv = $("#sentence");
-			var nameDiv = $("#name");
+		setNew : function() {
+			$("body").keypress(Game.author.keyboardHandler);
+			var author = Game.author.current = Game.author.getRandom();
 
-			var author = Game.period.currentAuthor = Game.period.authors[0];
-
-			if (!author) {
-				alert("V tem obdobju ni več avtorjev.");
+			if (anagram === null) {
+				$("#skip").attr("disabled", "disabled");
+				alert("Igre je konec. Začni znova!");
+				return;
 			}
 
-			$("body").keypress(Game.period.keyboardHandler);
+			var anagram = Game.author.current.first;
+
+			var sentenceDiv = $("#author-sentence");
+			var nameDiv = $("#name");
+
 			nameDiv.removeClass("finished").empty();
 
-			if (author.name.replace(/\s+/g, '').length != author.first.words.replace(/\s+/g, '').length) {
+			if (author.name.replace(/\s+/g, '').length != anagram.words.replace(/\s+/g, '').length) {
 				alert("Bad data in json store.");
 				return;
 			}
 
 			// @formatter:off
-			var content = author.first.sentence.replace(/ _ /g, "<div class='word-name before after'></div>").replace(/ _/g,
+			var content = anagram.sentence.replace(/ _ /g, "<div class='word-name before after'></div>").replace(/ _/g,
 					"<div class='word-name before'></div>").replace(/_ /g, "<div class='word-name after'></div>").replace(/_/g,
 					"<div class='word-name'></div>").replace(/%/g, "<span class='separator'></span>");
 			// @formatter:on
@@ -153,7 +191,7 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 
 			var wrappers = sentenceDiv.children(".word-name");
 
-			var words = $(author.first.words.split(" "));
+			var words = $(anagram.words.split(" "));
 
 			if (wrappers.length != words.length)
 				alert("Bad coding no. 2. Wrapper num does not match the word num. " + words.length + " vs " + wrappers.length);
@@ -161,9 +199,9 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 			words.each(function(i, word) {
 				$(word.split('')).each(function(index, character) {
 					var box = $("<span class='box'>" + character + "</span>");
-					box.click(Game.period.sourceHandler);
+					box.click(Game.author.sourceHandler);
 					box.attr("draggable", "true");
-					box[0].addEventListener("dragstart", Game.period.dragstart);
+					box[0].addEventListener("dragstart", Game.author.dragstart);
 					wrappers.eq(i).append(box);
 				});
 			});
@@ -175,24 +213,26 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 				nameDiv.append(namewrapper);
 				$.each(name.split(""), function(index, character) {
 					var box = $("<span class='box'>&nbsp;</span>");
-					box[0].addEventListener("drop", Game.period.drop);
-					box[0].addEventListener("dragover", Game.period.dragover);
+					box[0].addEventListener("drop", Game.author.drop);
+					box[0].addEventListener("dragover", Game.author.dragover);
 					box.on("click.sel", Game.extras.selectHandler);
 					namewrapper.append(box);
 				});
 			});
 
-			Game.period.addTextHints(author.help);
-			Game.period.addPictureHint(author.pictures[0]);
+			Game.author.addPictureHint(Game.author.current.pictures[0]);
+
+			Game.author.addTextHints(Game.author.current.help);
+
+			Timer.start();
 		},
 
 		addTextHints : function(help) {
-			$("body #helpcontainer").empty();
-			$("#hints").empty();
+			$("body #helpy").empty();
 
 			var content = $('<div class="texthint"/>').text(help[0]);
 			Game.extras.uniqueId(content);
-			$("body #helpcontainer").append(content);
+			$("body #helpy").append(content);
 			var a = $("<a/>").attr("href", "#" + content[0].id).append($("<span class='help'>&nbsp;</span>"));
 			$("#hints").append(a);
 			a.bind("click.an", Game.extras.hintHandler);
@@ -206,13 +246,13 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 				minHeight : 0
 			});
 
-			var splits = Game.period.currentAuthor.name.split(" ");
+			var splits = Game.author.current.name.split(" ");
 			var lastHelp = "Prvi črki imena in priimka:   " + splits[0][0] + Array(splits[0].length).join(" _") + "     " + splits[1][0]
 					+ Array(splits[1].length).join(" _");
 
 			var content = $('<div class="texthint"/>').text(lastHelp).css("white-space", "pre-wrap");
 			Game.extras.uniqueId(content);
-			$("body #helpcontainer").append(content);
+			$("body #helpy").append(content);
 			var a = $("<a/>").attr("href", "#" + content[0].id).append($("<span class='help'>&nbsp;</span>"));
 			$("#hints").append(a);
 			a.bind("click.an", Game.extras.hintHandler);
@@ -229,7 +269,7 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 
 		addPictureHint : function(pic) {
 			var a = $("<a title='Slika izbranega avtorja ------ narisal:  Vladimir Ribarič'/>");
-			a.attr("href", "rest/author/" + Game.period.currentAuthor.name + "/image/main.jpg").append($("<span class='help'>&nbsp;</span>"));
+			a.attr("href", "rest/author/" + Game.author.current.name + "/image/main.jpg").append($("<span class='help'>&nbsp;</span>"));
 			$("#hints").append(a);
 			a.bind("click.an", Game.extras.hintHandler);
 			a.fancybox({
@@ -238,20 +278,27 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 			});
 		},
 
-		setNew : function(periodName) {
-			Game.type = "period";
-
+		getRandom : function() {
+			var answer = null;
 			$.ajax({
-				async : true,
+				async : false,
 				type : "GET",
-				url : "/rest/period/" + periodName,
+				url : "/rest/author/REALIZEM/random",
 				cache : false,
 				success : function(data) {
-					Game.period.authors = data;
-					Game.period.setNextAuthor();
+					answer = data;
+				},
+				statusCode : {
+					401 : Game.extras.redirectHandler
 				},
 				dataType : "json"
 			});
+
+			if (answer) {
+				answer.points = 0;
+			}
+
+			return answer;
 		},
 
 		getEmpty : function() {
@@ -263,10 +310,14 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 		finish : function(solved) {
 			solved = (typeof solved == "boolean") ? solved : true;
 
+			Timer.clear();
+
 			$(".word").removeClass("selected").addClass("finished");
 
 			$("#next").removeAttr("disabled");
 			$("#skip").attr("disabled", "disabled");
+
+			$("body").off("keypress");
 
 			var boxes = $(".box");
 
@@ -274,47 +325,74 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 			boxes.removeClass("used", "full");
 
 			boxes.each(function(i, box) {
-				box.removeEventListener("drop", Game.period.drop);
-				box.removeEventListener("dragover", Game.period.dragover);
-				box.removeEventListener("dragstart", Game.period.dragstart);
+				box.removeEventListener("drop", Game.author.drop);
+				box.removeEventListener("dragover", Game.author.dragover);
+				box.removeEventListener("dragstart", Game.author.dragstart);
 				box.removeAttribute("draggable");
 			});
 
-			if (Game.period.authors) {
-				Game.period.authors = Game.period.authors.splice(1);
-			}
+			var row = $(".results table tr").eq(Game.author.count + 1).children("td");
 
-			if (solved == false) {
+			if (solved) {
+				var finishTime = Timer.getRemains();
+				var result = 16;
+				if (finishTime >= 120) {
+					result += 4;
+				} else if (finishTime >= 60) {
+					result += 2;
+				}
+
+				result -= ($("#hints a.used").length * 2);
+
+				Game.author.current.points += result;
+				Game.points += result;
+
+				row.eq(0).text(Game.author.current.name);
+				row.eq(1).text(result);
+			} else {
+				row.eq(0).text(Game.author.current.name);
+				row.eq(1).text("#");
+				row.eq(1).css("color", "#8C001A");
+
 				$(".word .box").html("&nbsp;").removeClass("full");
 
-				$.each(Game.period.currentAuthor.name.replace(/\s+/g, '').split(""), function(index, char) {
-					Game.period.getEmpty().html(char).addClass("full");
+				$.each(Game.author.current.name.replace(/\s+/g, '').split(""), function(index, char) {
+					Game.author.getEmpty().html(char).addClass("full");
 				});
 			}
+
+			row.last().text(Game.author.current.points);
+			$(".results table tr:last-child td:last-child").text(Game.points);
+
+			Game.anagram.count = 0;
 		},
 
 		checkState : function() {
-			if ($("#name .box").text() == Game.period.currentAuthor.name.replace(/\s+/g, '')) {
-				Game.period.finish();
+			if ($("#name .box").text() == Game.author.current.name.replace(/\s+/g, '')) {
+				Game.author.finish();
 				return;
 			}
 
-			var correct = Game.period.currentAuthor.name.split(" ");
-
+			var correct = Game.author.current.name.split(" ");
 			var words = $("#name .word");
+			var change = false;
 			words.each(function(index, word) {
 				word = $(word);
 				if (!word.hasClass("finished") && word.children(".box").text() == correct[index]) {
 					word.addClass("finished");
 					word.children(".box").off("click");
-					Game.extras.selectHandler.call(words.not(".finished").first().children().get(0));
-					return false;
+					change = true;
 				}
 			});
+
+			if (change) {
+				Game.extras.selectHandler.call(words.not(".finished").first().children().get(0));
+			}
+
 		},
 
 		getBox : function(letter) {
-			var answer = $("#sentence .word-name .box:not(.used)").filter(function(index) {
+			var answer = $("#author-sentence .word-name .box:not(.used)").filter(function(index) {
 				return (this.innerHTML.toLowerCase() == letter.toLowerCase());
 			});
 
@@ -322,7 +400,7 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 		},
 
 		sourceHandler : function() {
-			var targetBox = Game.period.getEmpty();
+			var targetBox = Game.author.getEmpty();
 			var sourceBox = $(this);
 			Game.extras.uniqueId(targetBox);
 			Game.extras.uniqueId(sourceBox);
@@ -331,36 +409,36 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 			targetBox.addClass("full");
 			sourceBox.addClass("used");
 
-			Game.period.links[targetBox[0].id] = sourceBox;
+			Game.author.links[targetBox[0].id] = sourceBox;
 
 			sourceBox.off('click');
 			targetBox.off("click.sel");
-			targetBox.click(Game.period.targetHandler);
+			targetBox.click(Game.author.targetHandler);
 
-			targetBox[0].removeEventListener("drop", Game.period.drop);
-			targetBox[0].removeEventListener("dragover", Game.period.dragover);
-			sourceBox[0].removeEventListener("dragstart", Game.period.dragstart);
+			targetBox[0].removeEventListener("drop", Game.author.drop);
+			targetBox[0].removeEventListener("dragover", Game.author.dragover);
+			sourceBox[0].removeEventListener("dragstart", Game.author.dragstart);
 			sourceBox[0].removeAttribute("draggable");
 
 			Game.extras.selectHandler.call(targetBox[0]);
 
-			Game.period.checkState();
+			Game.author.checkState();
 		},
 
 		targetHandler : function() {
 			var targetBox = $(this);
-			var sourceBox = $(Game.period.links[this.id]);
+			var sourceBox = $(Game.author.links[this.id]);
 
 			sourceBox.removeClass("used");
 			targetBox.removeClass("full");
 			targetBox.html("&nbsp;");
 			targetBox.off('click');
 			targetBox.on("click.sel", Game.extras.selectHandler);
-			sourceBox.click(Game.period.sourceHandler);
+			sourceBox.click(Game.author.sourceHandler);
 
-			targetBox[0].addEventListener("drop", Game.period.drop);
-			targetBox[0].addEventListener("dragover", Game.period.dragover);
-			sourceBox[0].addEventListener("dragstart", Game.period.dragstart);
+			targetBox[0].addEventListener("drop", Game.author.drop);
+			targetBox[0].addEventListener("dragover", Game.author.dragover);
+			sourceBox[0].addEventListener("dragstart", Game.author.dragstart);
 			sourceBox.attr("draggable", "true");
 
 			Game.extras.selectHandler.call(targetBox[0]);
@@ -369,9 +447,9 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 		keyboardHandler : function(event) {
 			if ((event.which <= 122 && event.which >= 97) || event.which == 269 || event.which == 382 || event.which == 353) {
 				event.preventDefault();
-				var box = Game.period.getBox(String.fromCharCode(event.which));
+				var box = Game.author.getBox(String.fromCharCode(event.which));
 				if (box !== null) {
-					Game.period.sourceHandler.call(box);
+					Game.author.sourceHandler.call(box);
 				}
 			}
 		},
@@ -395,15 +473,15 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 			targetBox.addClass("full");
 			sourceBox.addClass("used");
 
-			Game.period.links[targetBox[0].id] = sourceBox;
+			Game.author.links[targetBox[0].id] = sourceBox;
 
 			sourceBox.off('click');
 			targetBox.off("click.sel");
-			targetBox.click(Game.period.targetHandler);
+			targetBox.click(Game.author.targetHandler);
 
 			Game.extras.selectHandler.call(targetBox[0]);
 
-			Game.period.checkState();
+			Game.author.checkState();
 		},
 
 		dragstart : function(ev) {
@@ -414,29 +492,13 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 
 	var anag = {
 		links : {},
-
-		setNew : function(authorName) {
-			Game.type = "author";
-
-			$.ajax({
-				async : true,
-				type : "GET",
-				url : "/rest/author/" + authorName,
-				cache : false,
-				success : function(data) {
-					Game.author.current = data;
-					Game.author.setNextAnagram();
-				},
-				dataType : "json"
-			});
-		},
-
-		setNextAnagram : function() {
+		count : null,
+		setNew : function() {
 			$("body").off("keypress");
-			$("body").keypress(Game.author.keyboardHandler);
-			var anagram = Game.author.currentAnagram = Game.author.getRandom();
+			$("body").keypress(Game.anagram.keyboardHandler);
+			var anagram = Game.anagram.current = Game.anagram.getRandom();
 
-			var sentenceDiv = $("#sentence");
+			var sentenceDiv = $("#anagram-sentence");
 
 			// @formatter:off
 			var content = anagram.sentence.replace(/ _ /g, "<div class='word before after'></div>").replace(/ _/g, "<div class='word before'></div>")
@@ -457,8 +519,8 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 			words.each(function(i, word) {
 				$(word.split('')).each(function(index, character) {
 					var box = $("<span class='box'>&nbsp;</span>");
-					box[0].addEventListener("drop", Game.author.drop);
-					box[0].addEventListener("dragover", Game.author.dragover);
+					box[0].addEventListener("drop", Game.anagram.drop);
+					box[0].addEventListener("dragover", Game.anagram.dragover);
 					box.on("click.sel", Game.extras.selectHandler);
 					wrappers.eq(i).append(box);
 				});
@@ -476,25 +538,27 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 				$(word.split('')).each(function(index, character) {
 					var box = $("<span class='box'>&nbsp;</span>");
 					box.attr("draggable", "true");
-					box[0].addEventListener("dragstart", Game.author.dragstart);
+					box[0].addEventListener("dragstart", Game.anagram.dragstart);
 					box.text(character);
-					box.click(Game.author.sourceHandler);
+					box.click(Game.anagram.sourceHandler);
 					nameWrappers.eq(i).append(box);
 				});
 			});
 
-			Game.author.addTextHints(Game.author.currentAnagram.help);
+			Game.anagram.addTextHints(Game.anagram.current.help);
+
+			Timer.start();
 		},
 
 		addTextHints : function(help) {
-			$("body #helpcontainer").empty();
+			$("body #helpy").empty();
 			$(help).each(function(index, text) {
 				if (index > 2) {
 					return;
 				}
 				var content = $('<div class="texthint"/>').text(text);
 				Game.extras.uniqueId(content);
-				$("body #helpcontainer").append(content);
+				$("body #helpy").append(content);
 				var a = $("<a/>").attr("href", "#" + content[0].id).append($("<span class='help'>&nbsp;</span>"));
 				$("#hints").append(a);
 				a.bind("click.an", Game.extras.hintHandler);
@@ -529,13 +593,13 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 		},
 
 		checkState : function() {
-			if ($("#sentence .word .box").text() == Game.author.currentAnagram.words.replace(/\s+/g, '')) {
-				Game.author.finish();
+			if ($("#anagram-sentence .word .box").text() == Game.anagram.current.words.replace(/\s+/g, '')) {
+				Game.anagram.finish();
 				return;
 			}
 
-			var correct = Game.author.currentAnagram.words.split(" ");
-			var words = $("#sentence .word");
+			var correct = Game.anagram.current.words.split(" ");
+			var words = $("#anagram-sentence .word");
 			var change = false;
 
 			words.each(function(index, word) {
@@ -553,7 +617,7 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 		},
 
 		sourceHandler : function() {
-			var targetBox = Game.author.getEmpty();
+			var targetBox = Game.anagram.getEmpty();
 			var sourceBox = $(this);
 
 			Game.extras.uniqueId(sourceBox[0]);
@@ -563,24 +627,26 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 			sourceBox.addClass("used");
 			targetBox.addClass("full");
 
-			Game.author.links[targetBox[0].id] = sourceBox;
+			Game.anagram.links[targetBox[0].id] = sourceBox;
 
 			sourceBox.off('click');
-			targetBox.click(Game.author.targetHandler);
+			targetBox.click(Game.anagram.targetHandler);
 			targetBox.off("click.sel");
 
-			targetBox[0].removeEventListener("drop", Game.author.drop);
-			targetBox[0].removeEventListener("dragover", Game.author.dragover);
-			sourceBox[0].removeEventListener("dragstart", Game.author.dragstart);
+			targetBox[0].removeEventListener("drop", Game.anagram.drop);
+			targetBox[0].removeEventListener("dragover", Game.anagram.dragover);
+			sourceBox[0].removeEventListener("dragstart", Game.anagram.dragstart);
 			sourceBox[0].removeAttribute("draggable");
 
 			Game.extras.selectHandler.call(targetBox[0]);
 
-			Game.author.checkState();
+			Game.anagram.checkState();
 		},
 
 		finish : function(solved) {
 			solved = (typeof solved == "boolean") ? solved : true;
+
+			Timer.clear();
 
 			$(".word").addClass("finished").removeClass("selected");
 			$("body").off("keypress");
@@ -591,48 +657,97 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 			var boxes = $(".box").off("click").removeClass("used", "full");
 
 			boxes.each(function(i, box) {
-				box.removeEventListener("dragstart", Game.author.dragstart);
-				box.removeEventListener("drop", Game.author.drop);
-				box.removeEventListener("dragover", Game.author.dragover);
+				box.removeEventListener("dragstart", Game.anagram.dragstart);
+				box.removeEventListener("drop", Game.anagram.drop);
+				box.removeEventListener("dragover", Game.anagram.dragover);
 				box.removeAttribute("draggable");
 			});
-			
-			if (solved == false) {
+
+			var row = $(".results table tr").eq(Game.author.count + 1).children("td");
+			var result;
+			if (solved) {
+				var finishTime = Timer.getRemains();
+				result = 8;
+				if (finishTime >= 120) {
+					result += 2;
+				} else if (finishTime >= 60) {
+					result += 1;
+				}
+
+				result -= ($("#hints a.used").length);
+
+				Game.author.current.points += result;
+				Game.points += result;
+
+				row.eq(Game.anagram.count + 2).text(result);
+			} else {
+				row.eq(Game.anagram.count + 2).text("#").css("color", "#8C001A");
+
 				$(".word .box").html("&nbsp;").removeClass("full");
 
-				$.each(Game.author.currentAnagram.words.replace(/\s+/g, '').split(""), function(index, char) {
-					Game.author.getEmpty().html(char).addClass("full");
+				$.each(Game.anagram.current.words.replace(/\s+/g, '').split(""), function(index, char) {
+					Game.anagram.getEmpty().html(char).addClass("full");
 				});
+				result = 0;
+			}
+
+			row.last().text(Game.author.current.points);
+			$(".results table tr:last-child td:last-child").text(Game.points);
+
+			if (Game.anagram.count == 2) {
+				$.ajax({
+					type : "POST",
+					url : "/rest/score",
+					data : {
+						"points" : Game.author.current.points,
+						"authorName" : Game.author.current.name
+					},
+					cache : false,
+					error : Game.extras.redirectHandler
+				});
+
+				if (Game.author.count == 3) {
+					$("#next").attr("disabled", "disabled");
+					$("#skip").attr("disabled", "disabled");
+					Game.over = true;
+					alert("Bravo! Dosegli ste " + $(".results table tr:last-child td:last-child").text() + " točk.");
+				} else {
+					Game.author.current.points = 0;
+					Game.author.count++;
+					Game.anagram.count = null;
+				}
+			} else {
+				Game.anagram.count++;
 			}
 		},
 
 		targetHandler : function() {
 			var targetBox = $(this);
-			var sourceBox = $(Game.author.links[this.id]);
+			var sourceBox = $(Game.anagram.links[this.id]);
 
 			sourceBox.removeClass("used");
 			targetBox.removeClass("full");
 			targetBox.html("&nbsp;");
 			targetBox.off('click');
-			sourceBox.click(Game.author.sourceHandler);
+			sourceBox.click(Game.anagram.sourceHandler);
 			targetBox.on("click.sel", Game.extras.selectHandler);
 
-			targetBox[0].addEventListener("drop", Game.author.drop);
-			targetBox[0].addEventListener("dragover", Game.author.dragover);
-			sourceBox[0].addEventListener("dragstart", Game.author.dragstart);
+			targetBox[0].addEventListener("drop", Game.anagram.drop);
+			targetBox[0].addEventListener("dragover", Game.anagram.dragover);
+			sourceBox[0].addEventListener("dragstart", Game.anagram.dragstart);
 			sourceBox.attr("draggable", "true");
 
 			Game.extras.selectHandler.call(targetBox[0]);
 		},
 
 		getEmpty : function() {
-			var selected = $("#sentence .word.selected .box:not(.full)");
+			var selected = $("#anagram-sentence .word.selected .box:not(.full)");
 
-			return (selected.length > 0) ? selected.first() : $("#sentence .word .box:not(.full):first");
+			return (selected.length > 0) ? selected.first() : $("#anagram-sentence .word .box:not(.full):first");
 		},
 
 		getBox : function(letter) {
-			var answer = $("#sentence .word-name .box:not(.used)").filter(function(index) {
+			var answer = $("#anagram-sentence .word-name .box:not(.used)").filter(function(index) {
 				return (this.innerHTML.toLowerCase() == letter.toLowerCase());
 			});
 
@@ -643,9 +758,9 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 			// anagramHandler.call(getLetter)
 			if ((event.which <= 122 && event.which >= 97) || event.which == 269 || event.which == 382 || event.which == 353) {
 				event.preventDefault();
-				var box = Game.author.getBox(String.fromCharCode(event.which));
+				var box = Game.anagram.getBox(String.fromCharCode(event.which));
 				if (box !== null) {
-					Game.author.sourceHandler.call(box);
+					Game.anagram.sourceHandler.call(box);
 				}
 			}
 		},
@@ -673,19 +788,20 @@ define([ "jquery", "fancybox/jquery.fancybox.pack" ], function($) {
 			sourceBox.addClass("used");
 			targetBox.addClass("full");
 
-			Game.author.links[targetBox[0].id] = sourceBox;
+			Game.anagram.links[targetBox[0].id] = sourceBox;
 
 			sourceBox.off('click');
-			targetBox.click(Game.author.targetHandler);
+			targetBox.click(Game.anagram.targetHandler);
 			targetBox.off("click.sel");
 
 			Game.extras.selectHandler.call(targetBox[0]);
 
-			Game.author.checkState();
+			Game.anagram.checkState();
 		}
 	};
 
-	Game.author = anag;
+	Game.author = auth;
+	Game.anagram = anag;
 
 	return Game;
 });

@@ -39,7 +39,7 @@ public class FileFeeder {
 		try {
 			AnagramFactory.getInstance().validateSession(sessionid);
 			InputStream site = context.getResourceAsStream(rootPath
-					+ "/html/site1.html");
+					+ "/html/igraj-tocke.html");
 			return Response.ok(site).header("cdn", "worked").build();
 		} catch (SessionInvalidException e) {
 			return Response

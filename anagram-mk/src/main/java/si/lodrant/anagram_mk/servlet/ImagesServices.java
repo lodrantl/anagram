@@ -177,18 +177,6 @@ public class ImagesServices {
 		}
 	}
 
-//	public Response convertToObjectify() {
-//		Iterable<Entity> query = datastore.prepare(new Query("Author")).asIterable();
-//
-//		for (Entity oldAuthor : query) {
-//			Author newAuthor = new Author();
-//			newAuthor.setName(oldAuthor.getKey().getName());
-//			newAuthor.setJson(((Text) oldAuthor.getProperty("json")).getValue());
-//			ofy().save().entity(newAuthor);
-//		}
-//		return Response.ok().build();
-//	}
-
 	public Response getUploadUrl() throws URISyntaxException {
 		return Response.created(new URI(blobstore.createUploadUrl("/rest/image/upload/handler"))).build();
 	}

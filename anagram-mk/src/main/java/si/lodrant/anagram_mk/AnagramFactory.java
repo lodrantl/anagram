@@ -10,6 +10,10 @@ import java.util.logging.Logger;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 
+import org.json.simple.JSONArray;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+
 import si.lodrant.anagram_mk.exceptions.SessionInvalidException;
 import si.lodrant.anagram_mk.jpa.Author;
 import si.lodrant.anagram_mk.jpa.Session;

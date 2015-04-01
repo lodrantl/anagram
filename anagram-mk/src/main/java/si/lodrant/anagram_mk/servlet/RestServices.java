@@ -18,6 +18,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
 import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
@@ -32,15 +33,14 @@ import com.googlecode.objectify.NotFoundException;
 import com.jamesmurty.utils.XMLBuilder;
 
 public class RestServices {
-	private static final Logger log = Logger.getLogger(RestServices.class
-			.getName());
+	private static final Logger log = Logger.getLogger(RestServices.class.getName());
 	private String rootPath;
 
 	public RestServices(String rootParam) {
 		rootPath = rootParam;
 	}
 
-	public Response uploadAuthor(String name, String json) {
+	public Response uploadAuthor(String name, String period, String json) {
 		Author author;
 
 		try {
@@ -50,6 +50,7 @@ public class RestServices {
 		}
 
 		author.setJson(json);
+		author.setPeriod(period);
 		ofy().save().entity(author).now();
 
 		return Response.status(200).build();
@@ -66,12 +67,11 @@ public class RestServices {
 			String json = Author.load(name).getJson();
 			return Response.status(200).entity(json).build();
 		} catch (NotFoundException e) {
-			throw new WebApplicationException(Response.status(404).entity(name)
-					.build());
+			throw new WebApplicationException(Response.status(404).entity(name).build());
 		}
 	}
 
-	public Response getAuthors() {
+	public Response getAuthorsFull() {
 		List<Author> authors = ofy().load().type(Author.class).list();
 
 		JSONParser parser = new JSONParser();
@@ -84,6 +84,22 @@ public class RestServices {
 				log.severe("Bad JSON data for author " + e.getName());
 				throw new WebApplicationException(e1, 500);
 			}
+		}
+
+		return Response.status(200).entity(array.toJSONString()).build();
+	}
+
+	public Response getAuthorsList() {
+		List<Author> authors = ofy().load().type(Author.class).list();
+
+		JSONArray array = new JSONArray();
+
+		for (Author e : authors) {
+			JSONObject object = new JSONObject();
+
+			object.put("name", e.getName());
+			object.put("period", e.getPeriod());
+			array.add(object);
 		}
 
 		return Response.status(200).entity(array.toJSONString()).build();
@@ -122,8 +138,7 @@ public class RestServices {
 
 		ofy().save().entity(session).now();
 
-		NewCookie cookie = new NewCookie("ASESSIONKEY", "" + session.getId(),
-				"/", null, "Session cookie for Game of Anagrams", -1, false);
+		NewCookie cookie = new NewCookie("ASESSIONKEY", "" + session.getId(), "/", null, "Session cookie for Game of Anagrams", -1, false);
 
 		return Response.seeOther(createURI("", uri)).cookie(cookie).build();
 	}
@@ -134,8 +149,7 @@ public class RestServices {
 		return Response.status(200).build();
 	}
 
-	public Response commitScore(long sessionid, int points, String author,
-			UriInfo uri) {
+	public Response commitScore(long sessionid, int points, String author, UriInfo uri) {
 		try {
 			Session session = Session.load(sessionid);
 
@@ -162,8 +176,7 @@ public class RestServices {
 
 	public Response getScores() {
 		try {
-			SimpleDateFormat format = new SimpleDateFormat(
-					"yyyy/MM/dd 'ob' HH:mm:ss");
+			SimpleDateFormat format = new SimpleDateFormat("yyyy/MM/dd 'ob' HH:mm:ss");
 
 			XMLBuilder main = XMLBuilder.create("rows");
 			List<Score> scores = ofy().load().type(Score.class).list();
@@ -185,8 +198,7 @@ public class RestServices {
 			}
 
 			return Response.status(200).entity(main.asString()).build();
-		} catch (ParserConfigurationException | FactoryConfigurationError
-				| TransformerException e1) {
+		} catch (ParserConfigurationException | FactoryConfigurationError | TransformerException e1) {
 			throw new WebApplicationException(e1);
 		}
 
@@ -205,7 +217,26 @@ public class RestServices {
 	}
 
 	private URI createURI(String path, UriInfo uri) {
-		return uri.getAbsolutePathBuilder().replacePath(rootPath).path(path)
-				.build();
+		return uri.getAbsolutePathBuilder().replacePath(rootPath).path(path).build();
+	}
+
+	public Response period(String name) {
+		List<Author> authors = ofy().load().type(Author.class).list();
+
+		JSONParser parser = new JSONParser();
+		JSONArray array = new JSONArray();
+
+		for (Author e : authors) {
+			if (e.getPeriod().equals(name)) {
+				try {
+					array.add(parser.parse(e.getJson()));
+				} catch (ParseException e1) {
+					log.severe("Bad JSON data for author " + e.getName());
+					throw new WebApplicationException(e1, 500);
+				}
+			}
+		}
+
+		return Response.status(200).entity(array.toJSONString()).build();
 	}
 }

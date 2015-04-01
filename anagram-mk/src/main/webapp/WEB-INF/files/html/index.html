@@ -41,12 +41,20 @@
 			<form method="post" action="../rest/register"
 				onsubmit="return checkName()">
 				<div>
+					<p>Realizem - s točkovanjem</p>
 					<span class="type0">Vaše ime:</span> <input id="user" type="text"
 						name="username" /> <input type="submit" value="Začni" />
 				</div>
 			</form>
+
+			<div>
+				<ul>
+					<li><a href="/igraj?period=realizem&type=authors">Realizem - avtorji</a></li>
+					<li><a href="/igraj?period=realizem&type=anagrams">Realizem - avtorji</a></li>
+				</ul>
+			</div>
 			<div id="links">
-				<a href="../anagram"> <img src="../img/results.png"
+				<a href="/rezultati"> <img src="../img/results.png"
 					alt="Rezultati" /></a>
 			</div>
 		</div>
